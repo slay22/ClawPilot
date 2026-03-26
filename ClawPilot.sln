@@ -1,0 +1,36 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.5.2.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{827E0CD3-B72D-47B6-A68D-7590B98EB39B}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ClawPilot.Dashboard", "src\ClawPilot.Dashboard\ClawPilot.Dashboard.csproj", "{B36068C2-96D5-180D-C418-68C3798B06C1}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ClawPilot.Worker", "src\ClawPilot.Worker\ClawPilot.Worker.csproj", "{97DC8CC4-0FE7-8F58-D0CA-E30536F6EEFF}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{B36068C2-96D5-180D-C418-68C3798B06C1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B36068C2-96D5-180D-C418-68C3798B06C1}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B36068C2-96D5-180D-C418-68C3798B06C1}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B36068C2-96D5-180D-C418-68C3798B06C1}.Release|Any CPU.Build.0 = Release|Any CPU
+		{97DC8CC4-0FE7-8F58-D0CA-E30536F6EEFF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{97DC8CC4-0FE7-8F58-D0CA-E30536F6EEFF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{97DC8CC4-0FE7-8F58-D0CA-E30536F6EEFF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{97DC8CC4-0FE7-8F58-D0CA-E30536F6EEFF}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{B36068C2-96D5-180D-C418-68C3798B06C1} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
+		{97DC8CC4-0FE7-8F58-D0CA-E30536F6EEFF} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {26D6642D-B657-4FDF-A3F1-AAF8641ABBFE}
+	EndGlobalSection
+EndGlobal

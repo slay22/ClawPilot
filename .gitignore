@@ -1,0 +1,12 @@
+### DotnetCore ###
+# .NET Core build folders
+bin/
+obj/
+
+.idea/
+.DS_Store
+
+# Common node modules locations
+/node_modules
+/wwwroot/node_modules
+Arte.Apax.Pa.Backend.sln.DotSettings.user

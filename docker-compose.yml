@@ -1,0 +1,42 @@
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: postgres
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  dashboard:
+    build:
+      context: .
+      dockerfile: src/ClawPilot.Dashboard/Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+    depends_on:
+      - postgres
+
+  worker:
+    build:
+      context: .
+      dockerfile: src/ClawPilot.Worker/Dockerfile
+    environment:
+      - Telegram__BotToken=${TELEGRAM_BOT_TOKEN}
+      - Telegram__ChatId=${TELEGRAM_CHAT_ID}
+      - GitHub__CopilotToken=${GITHUB_COPILOT_TOKEN}
+      - ConnectionStrings__Database=Host=postgres;Username=postgres;Password=password;Database=postgres
+      - Dashboard__Url=http://dashboard:8080/logHub
+      - WebSearch__BraveApiKey=${BRAVE_SEARCH_API_KEY}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      dashboard:
+        condition: service_started

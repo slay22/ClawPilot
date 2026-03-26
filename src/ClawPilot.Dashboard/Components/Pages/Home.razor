@@ -1,0 +1,66 @@
+﻿@page "/"
+@rendermode InteractiveServer
+@using Microsoft.AspNetCore.SignalR.Client
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+@implements IAsyncDisposable
+
+<PageTitle>Claw-Pilot Dashboard</PageTitle>
+
+<h1>Claw-Pilot Agent Logs</h1>
+
+<div class="d-flex justify-content-between align-items-center mb-2">
+    <span class="badge @(IsConnected ? "bg-success" : "bg-danger")">
+        @(IsConnected ? "● Connected" : "● Disconnected")
+    </span>
+    <button class="btn btn-sm btn-outline-secondary" @onclick="ClearLogs">Clear</button>
+</div>
+
+<div id="log-container" class="card bg-dark text-white font-monospace" style="height: 600px; overflow-y: auto;">
+    <div class="card-body">
+        @foreach (var entry in logs)
+        {
+            <div class="log-entry">
+                <span class="text-secondary">[@entry.Timestamp]</span> @entry.Message
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private HubConnection? hubConnection;
+    private List<LogEntry> logs = new();
+
+    private bool IsConnected => hubConnection?.State == HubConnectionState.Connected;
+
+    protected override async Task OnInitializedAsync()
+    {
+        hubConnection = new HubConnectionBuilder()
+            .WithUrl(Navigation.ToAbsoluteUri("/logHub"))
+            .WithAutomaticReconnect()
+            .Build();
+
+        hubConnection.On<string>("ReceiveLog", async (message) =>
+        {
+            logs.Add(new LogEntry(DateTime.Now.ToString("HH:mm:ss"), message));
+            await InvokeAsync(StateHasChanged);
+            await JS.InvokeVoidAsync("scrollToBottom", "log-container");
+        });
+
+        hubConnection.Reconnected += _ => InvokeAsync(StateHasChanged);
+        hubConnection.Reconnecting += _ => InvokeAsync(StateHasChanged);
+        hubConnection.Closed += _ => InvokeAsync(StateHasChanged);
+
+        await hubConnection.StartAsync();
+    }
+
+    private void ClearLogs() => logs.Clear();
+
+    public async ValueTask DisposeAsync()
+    {
+        if (hubConnection is not null)
+            await hubConnection.DisposeAsync();
+    }
+
+    private record LogEntry(string Timestamp, string Message);
+}
