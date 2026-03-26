@@ -14,7 +14,7 @@ public class JournalEntry
 public class AgentJournal
 {
     private readonly string _filePath = "AgentJournal.json";
-    private readonly List<JournalEntry> _entries = new List<JournalEntry>();
+    private readonly List<JournalEntry> _entries = [];
 
     public AgentJournal()
     {
@@ -31,7 +31,7 @@ public class AgentJournal
 
     public void AddEntry(string thought, string? action = null, string? result = null, bool success = true)
     {
-        JournalEntry entry = new JournalEntry
+        JournalEntry entry = new()
         {
             Thought = thought,
             Action = action,

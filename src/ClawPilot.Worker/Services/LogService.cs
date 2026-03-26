@@ -9,30 +9,23 @@ public class DashboardOptions
     public string Url { get; set; } = "http://localhost:5247/logHub";
 }
 
-public class LogService
+public class LogService(IOptions<DashboardOptions> options, ILogger<LogService> logger)
 {
-    private readonly HubConnection _connection;
-    private readonly ILogger<LogService> _logger;
-
-    public LogService(IOptions<DashboardOptions> options, ILogger<LogService> logger)
-    {
-        _logger = logger;
-        _connection = new HubConnectionBuilder()
-            .WithUrl(options.Value.Url)
-            .WithAutomaticReconnect()
-            .Build();
-    }
+    private readonly HubConnection _connection = new HubConnectionBuilder()
+        .WithUrl(options.Value.Url)
+        .WithAutomaticReconnect()
+        .Build();
 
     public async Task StartAsync(CancellationToken ct)
     {
         try
         {
             await _connection.StartAsync(ct);
-            _logger.LogInformation("SignalR LogService started.");
+            logger.LogInformation("SignalR LogService started.");
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to connect to LogHub");
+            logger.LogError(ex, "Failed to connect to LogHub");
         }
     }
 

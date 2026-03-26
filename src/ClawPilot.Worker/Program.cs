@@ -3,7 +3,7 @@ using ClawPilot.Worker.Models;
 using ClawPilot.Worker.Services;
 using ClawPilot.Worker.Tools;
 
-var builder = Host.CreateApplicationBuilder(args);
+HostApplicationBuilder builder = Host.CreateApplicationBuilder(args);
 
 // Configuration
 builder.Services.Configure<TelegramOptions>(builder.Configuration.GetSection("Telegram"));
@@ -25,12 +25,12 @@ builder.Services.AddSingleton<WebSearchTool>();
 // Copilot Service - get all tools
 builder.Services.AddSingleton<CopilotService>(sp =>
 {
-    List<object> tools = new List<object>
-    {
+    List<object> tools =
+    [
         sp.GetRequiredService<DbTool>(),
         sp.GetRequiredService<BuildTool>(),
         sp.GetRequiredService<WebSearchTool>(),
-    };
+    ];
     return new CopilotService(
         sp.GetRequiredService<TelegramService>(),
         sp.GetRequiredService<LogService>(),

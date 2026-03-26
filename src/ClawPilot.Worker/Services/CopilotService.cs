@@ -17,7 +17,7 @@ public class CopilotService(
     ILogger<CopilotService> logger,
     IEnumerable<object> toolProviders)
 {
-    private readonly CopilotClient _client = new CopilotClient();
+    private readonly CopilotClient _client = new();
     private readonly List<AIFunction> _tools = [..BuildTools(toolProviders, logger)];
 
     private static IEnumerable<AIFunction> BuildTools(IEnumerable<object> providers, ILogger logger)
@@ -76,12 +76,12 @@ public class CopilotService(
         {
             switch (ev)
             {
-                case AssistantMessageDeltaEvent { Data.DeltaContent: var content }:
+                case AssistantMessageDeltaEvent { Data.DeltaContent: string content }:
                     logService.SendLogAsync(content).Wait();
                     logger.LogDebug("Delta: {content}", content);
                     break;
 
-                case ToolExecutionStartEvent { Data.ToolName: var toolName }:
+                case ToolExecutionStartEvent { Data.ToolName: string toolName }:
                     logService.SendLogAsync($"🛠️ Calling tool: {toolName}").Wait();
                     logger.LogInformation("Calling tool: {name}", toolName);
                     journal.AddEntry($"Calling tool: {toolName}", action: toolName);
@@ -91,7 +91,7 @@ public class CopilotService(
                     done.TrySetResult();
                     break;
 
-                case SessionErrorEvent { Data.Message: var message }:
+                case SessionErrorEvent { Data.Message: string message }:
                     logger.LogError("Session error: {msg}", message);
                     done.TrySetException(new Exception(message));
                     break;

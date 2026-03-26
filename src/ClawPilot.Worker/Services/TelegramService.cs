@@ -15,26 +15,18 @@ public class TelegramOptions
     public string ChatId { get; set; } = string.Empty;
 }
 
-public class TelegramService
+public class TelegramService(IOptions<TelegramOptions> options, ILogger<TelegramService> logger)
 {
-    private readonly ITelegramBotClient _botClient;
-    private readonly TelegramOptions _options;
-    private readonly ILogger<TelegramService> _logger;
+    private readonly TelegramOptions _options = options.Value;
+    private readonly ITelegramBotClient _botClient = new TelegramBotClient(options.Value.BotToken);
     private readonly ConcurrentDictionary<string, TaskCompletionSource<bool>> _pendingApprovals = new ConcurrentDictionary<string, TaskCompletionSource<bool>>();
     private readonly Channel<string> _commandChannel = Channel.CreateUnbounded<string>();
-
-    public TelegramService(IOptions<TelegramOptions> options, ILogger<TelegramService> logger)
-    {
-        _options = options.Value;
-        _logger = logger;
-        _botClient = new TelegramBotClient(_options.BotToken);
-    }
 
     public ChannelReader<string> CommandReader => _commandChannel.Reader;
 
     public async Task StartReceivingAsync(CancellationToken stoppingToken)
     {
-        _logger.LogInformation("Starting Telegram Bot receiver...");
+        logger.LogInformation("Starting Telegram Bot receiver...");
         _botClient.StartReceiving(
             updateHandler: HandleUpdateAsync,
             errorHandler: HandleErrorAsync,
@@ -45,44 +37,45 @@ public class TelegramService
 
     private Task HandleErrorAsync(ITelegramBotClient botClient, Exception exception, CancellationToken cancellationToken)
     {
-        _logger.LogError(exception, "Telegram Bot Error");
+        logger.LogError(exception, "Telegram Bot Error");
         return Task.CompletedTask;
     }
 
     private async Task HandleUpdateAsync(ITelegramBotClient botClient, Update update, CancellationToken cancellationToken)
     {
-        if (update.CallbackQuery is { } callbackQuery)
+        switch (update)
         {
-            string? data = callbackQuery.Data;
-            if (data == null) return;
-
-            string[] parts = data.Split(':');
-            if (parts.Length != 2) return;
-
-            string action = parts[0];
-            string requestId = parts[1];
-
-            if (_pendingApprovals.TryRemove(requestId, out TaskCompletionSource<bool>? tcs))
+            case { CallbackQuery: { } callbackQuery }:
             {
-                bool approved = action == "approve";
-                tcs.SetResult(approved);
+                string? data = callbackQuery.Data;
+                if (data == null) return;
 
-                await botClient.AnswerCallbackQuery(callbackQuery.Id, approved ? "Approved!" : "Denied!", cancellationToken: cancellationToken);
-                await botClient.EditMessageText(
-                    callbackQuery.Message!.Chat.Id,
-                    callbackQuery.Message.MessageId,
-                    $"{callbackQuery.Message.Text}\n\nDecision: {(approved ? "✅ Approved" : "❌ Denied")}",
-                    cancellationToken: cancellationToken
-                );
+                string[] parts = data.Split(':');
+                if (parts.Length != 2) return;
+
+                string action = parts[0];
+                string requestId = parts[1];
+
+                if (_pendingApprovals.TryRemove(requestId, out TaskCompletionSource<bool>? tcs))
+                {
+                    bool approved = action == "approve";
+                    tcs.SetResult(approved);
+
+                    await botClient.AnswerCallbackQuery(callbackQuery.Id, approved ? "Approved!" : "Denied!", cancellationToken: cancellationToken);
+                    await botClient.EditMessageText(
+                        callbackQuery.Message!.Chat.Id,
+                        callbackQuery.Message.MessageId,
+                        $"{callbackQuery.Message.Text}\n\nDecision: {(approved ? "✅ Approved" : "❌ Denied")}",
+                        cancellationToken: cancellationToken
+                    );
+                }
+                break;
             }
-        }
-        else if (update.Message is { } message)
-        {
-            _logger.LogInformation("Received message from {chatId}: {text}", message.Chat.Id, message.Text);
-            if (message.Text != null && message.Chat.Id.ToString() == _options.ChatId)
-            {
-                await _commandChannel.Writer.WriteAsync(message.Text, cancellationToken);
-            }
+            case { Message: { } message }:
+                logger.LogInformation("Received message from {chatId}: {text}", message.Chat.Id, message.Text);
+                if (message.Text != null && message.Chat.Id.ToString() == _options.ChatId)
+                    await _commandChannel.Writer.WriteAsync(message.Text, cancellationToken);
+                break;
         }
     }
 
@@ -92,14 +85,10 @@ public class TelegramService
         TaskCompletionSource<bool> tcs = new TaskCompletionSource<bool>();
         _pendingApprovals[requestId] = tcs;
 
-        InlineKeyboardMarkup keyboard = new InlineKeyboardMarkup(new[]
-        {
-            new[]
-            {
-                InlineKeyboardButton.WithCallbackData("✅ Approve", $"approve:{requestId}"),
-                InlineKeyboardButton.WithCallbackData("❌ Deny", $"deny:{requestId}")
-            }
-        });
+        InlineKeyboardMarkup keyboard = new InlineKeyboardMarkup([[
+            InlineKeyboardButton.WithCallbackData("✅ Approve", $"approve:{requestId}"),
+            InlineKeyboardButton.WithCallbackData("❌ Deny", $"deny:{requestId}")
+        ]]);
 
         await _botClient.SendMessage(
             chatId: _options.ChatId,
@@ -109,10 +98,8 @@ public class TelegramService
             cancellationToken: cancellationToken
         );
 
-        using (cancellationToken.Register(() => tcs.TrySetCanceled()))
-        {
-            return await tcs.Task;
-        }
+        using CancellationTokenRegistration _ = cancellationToken.Register(() => tcs.TrySetCanceled());
+        return await tcs.Task;
     }
 
     public async Task SendMessageAsync(string text, CancellationToken cancellationToken = default)

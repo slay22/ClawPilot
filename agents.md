@@ -32,7 +32,7 @@ ClawPilot/
 
 ## ClawPilot.Worker
 
-**Type:** .NET 10 Worker Service (`Microsoft.NET.Sdk.Worker`)  
+**Type:** .NET 10 Worker Service (`Microsoft.NET.Sdk.Worker`)
 **Entry point:** `Program.cs` → registers DI, starts `Worker` hosted service
 
 ### Execution Flow
@@ -130,7 +130,7 @@ Decorate any `public` method on a registered tool provider to expose it to the a
 
 ## ClawPilot.Dashboard
 
-**Type:** .NET 10 Blazor Server App (`Microsoft.NET.Sdk.Web`)  
+**Type:** .NET 10 Blazor Server App (`Microsoft.NET.Sdk.Web`)
 **Entry point:** `Program.cs`
 
 ### Responsibilities
@@ -239,3 +239,79 @@ The `CopilotService` constructor will auto-discover and register all `[CopilotTo
 - **SignalR streaming:** Agent response deltas are pushed to the Dashboard in real time without polling.
 - **Reflection-based tool registration:** No manual wiring needed for new tools — just add `[CopilotTool]` and register the provider object.
 - **SARIF-based build feedback:** Build errors are structured (not raw stdout), giving the agent precise file/line information.
+
+---
+
+## Code Style Conventions
+
+This codebase follows modern C# idioms. When editing or adding files, apply these patterns consistently.
+
+### Primary Constructors (C# 12+)
+All services and tools use primary constructors. Dependencies are injected via the class parameter list and consumed directly in field initializers or method bodies — no constructor body needed.
+
+```csharp
+public class MyService(IOptions<MyOptions> options, ILogger<MyService> logger)
+{
+    private readonly string _value = options.Value.Setting;
+    // Use logger directly in methods
+}
+```
+
+### Explicit Types over `var`
+Never use `var`. Declare all locals, loop variables, and `out`-variables with their explicit type:
+
+```csharp
+string prompt = await reader.ReadAsync(ct);
+HostApplicationBuilder builder = Host.CreateApplicationBuilder(args);
+IHost host = builder.Build();
+```
+
+### `new T()` over Target-Typed `new()`
+Always write the full type name in object creation expressions:
+
+```csharp
+// ✅ Correct
+TaskCompletionSource<bool> tcs = new TaskCompletionSource<bool>();
+
+// ❌ Avoid
+var tcs = new();
+```
+
+### Pattern Matching
+Use `switch` statements with property patterns instead of `if/else if` chains when dispatching on type or shape:
+
+```csharp
+switch (update)
+{
+    case { CallbackQuery: { } callbackQuery }: ...
+    case { Message: { } message }: ...
+}
+```
+
+Use `is { }` to combine null-check and variable binding in a single expression:
+
+```csharp
+if (method.GetCustomAttribute<CopilotToolAttribute>() is { } attr) { ... }
+```
+
+Use explicit types in property sub-patterns instead of `var`:
+
+```csharp
+case AssistantMessageDeltaEvent { Data.DeltaContent: string content }:
+```
+
+### `using` Declarations
+Prefer `using T x = ...;` declarations over `using (...) { }` blocks:
+
+```csharp
+using CancellationTokenRegistration _ = ct.Register(() => tcs.TrySetCanceled());
+```
+
+### Collection Expressions
+Use `[...]` collection expressions and the spread operator `..` instead of `new[]` or `.ToArray()`:
+
+```csharp
+Tools = [.._tools]
+private readonly List<AIFunction> _tools = [..BuildTools(providers, logger)];
+InlineKeyboardMarkup keyboard = new InlineKeyboardMarkup([[btn1, btn2]]);
+```

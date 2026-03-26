@@ -18,7 +18,7 @@
 
 <div id="log-container" class="card bg-dark text-white font-monospace" style="height: 600px; overflow-y: auto;">
     <div class="card-body">
-        @foreach (var entry in logs)
+        @foreach (LogEntry entry in logs)
         {
             <div class="log-entry">
                 <span class="text-secondary">[@entry.Timestamp]</span> @entry.Message
@@ -29,7 +29,7 @@
 
 @code {
     private HubConnection? hubConnection;
-    private List<LogEntry> logs = new();
+    private List<LogEntry> logs = new List<LogEntry>();
 
     private bool IsConnected => hubConnection?.State == HubConnectionState.Connected;
 
