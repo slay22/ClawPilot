@@ -18,13 +18,14 @@ public class CopilotService(
     LogService logService,
     IAgentJournal journal,
     IOptions<AgentBudgetOptions> budgetOptions,
+    IOptions<GitHubOptions> githubOptions,
     ILogger<CopilotService> logger,
     IEnumerable<object> toolProviders,
     GitHubMcpService githubMcp,
     WebSearchMcpService webSearchMcp)
 {
     private readonly AgentBudgetOptions _budget = budgetOptions.Value;
-    private readonly CopilotClient _client = new CopilotClient();
+    private readonly CopilotClient _client = new CopilotClient(new CopilotClientOptions { GithubToken = githubOptions.Value.CopilotToken });
     private readonly List<AIFunction> _tools = [..BuildTools(toolProviders, logger)];
 
     private static IEnumerable<AIFunction> BuildTools(IEnumerable<object> providers, ILogger logger)

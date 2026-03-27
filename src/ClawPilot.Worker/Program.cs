@@ -65,6 +65,7 @@ builder.Services.AddSingleton<CopilotService>(sp =>
         sp.GetRequiredService<LogService>(),
         sp.GetRequiredService<IAgentJournal>(),
         sp.GetRequiredService<IOptions<AgentBudgetOptions>>(),
+        sp.GetRequiredService<IOptions<GitHubOptions>>(),
         sp.GetRequiredService<ILogger<CopilotService>>(),
         localTools,
         sp.GetRequiredService<GitHubMcpService>(),
@@ -79,6 +80,7 @@ builder.Services.AddSingleton<ConversationService>(sp =>
         sp.GetRequiredService<TelegramService>(),
         sp.GetRequiredService<IDbContextFactory<ClawPilotDbContext>>(),
         sp.GetRequiredService<IOptions<ConversationOptions>>(),
+        sp.GetRequiredService<IOptions<GitHubOptions>>(),
         sp.GetRequiredService<WebSearchMcpService>(),
         sp.GetRequiredService<ILogger<ConversationService>>()
     )
@@ -97,8 +99,28 @@ using (IServiceScope scope = host.Services.CreateScope())
 {
     IDbContextFactory<ClawPilotDbContext> factory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<ClawPilotDbContext>>();
     ClawPilotDbContext db = factory.CreateDbContext();
-    await db.Database.EnsureCreatedAsync();
-    await db.DisposeAsync();
+    await using (db)
+    {
+        // Creates schema on first run. For existing databases, the IF NOT EXISTS
+        // guards below handle any tables added after the initial creation.
+        await db.Database.EnsureCreatedAsync();
+
+        // Idempotent guards for schema additions — safe to run on every startup.
+        await db.Database.ExecuteSqlRawAsync("""
+            CREATE TABLE IF NOT EXISTS "ConversationMessages" (
+                "Id"               TEXT NOT NULL CONSTRAINT "PK_ConversationMessages" PRIMARY KEY,
+                "TelegramChatId"   TEXT NOT NULL DEFAULT '',
+                "CopilotSessionId" TEXT NOT NULL DEFAULT '',
+                "CreatedAt"        TEXT NOT NULL DEFAULT '0001-01-01T00:00:00',
+                "UpdatedAt"        TEXT NOT NULL DEFAULT '0001-01-01T00:00:00'
+            )
+            """);
+
+        await db.Database.ExecuteSqlRawAsync("""
+            CREATE INDEX IF NOT EXISTS "IX_ConversationMessages_TelegramChatId"
+            ON "ConversationMessages" ("TelegramChatId")
+            """);
+    }
 }
 
 host.Run();

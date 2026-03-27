@@ -13,21 +13,20 @@ public class ConversationService(
     TelegramService telegramService,
     IDbContextFactory<ClawPilotDbContext> dbFactory,
     IOptions<ConversationOptions> conversationOptions,
+    IOptions<GitHubOptions> githubOptions,
     WebSearchMcpService webSearchMcp,
     ILogger<ConversationService> logger) : IHostedService, IAsyncDisposable
 {
     private readonly ConversationOptions _opts = conversationOptions.Value;
-    private readonly CopilotClient _client = new CopilotClient();
+    private readonly CopilotClient _client = new(new CopilotClientOptions { GithubToken = githubOptions.Value.CopilotToken });
     private readonly ConcurrentDictionary<string, CopilotSession> _sessions = new();
 
     // Set by Program.cs after CopilotService is created to break the circular dependency.
     public CopilotService? CopilotService { get; set; }
 
-    public async Task StartAsync(CancellationToken cancellationToken) =>
-        await _client.StartAsync();
+    public async Task StartAsync(CancellationToken cancellationToken) => await _client.StartAsync();
 
-    public async Task StopAsync(CancellationToken cancellationToken) =>
-        await _client.ForceStopAsync();
+    public async Task StopAsync(CancellationToken cancellationToken) => await _client.ForceStopAsync();
 
     public async Task ChatAsync(string chatId, string message, CancellationToken ct)
     {
@@ -36,15 +35,22 @@ public class ConversationService(
             CopilotSession session = await GetOrCreateSessionAsync(chatId, ct);
 
             string fullReply = string.Empty;
-            TaskCompletionSource done = new TaskCompletionSource();
-            using CancellationTokenRegistration reg = ct.Register(() => done.TrySetCanceled());
+            TaskCompletionSource done = new();
+            using CancellationTokenSource timeoutCts = new(TimeSpan.FromSeconds(60));
+            using CancellationTokenSource linkedCts = CancellationTokenSource.CreateLinkedTokenSource(ct, timeoutCts.Token);
+            using CancellationTokenRegistration reg = linkedCts.Token.Register(() => done.TrySetCanceled());
 
             using IDisposable sub = session.On(ev =>
             {
+                logger.LogDebug("Session event [{ChatId}]: {Type}", chatId, ev.Type);
                 switch (ev)
                 {
                     case AssistantMessageDeltaEvent { Data.DeltaContent: string delta }:
                         fullReply += delta;
+                        break;
+
+                    case AssistantMessageEvent { Data.Content: string content } when string.IsNullOrEmpty(fullReply):
+                        fullReply = content;
                         break;
 
                     case SessionIdleEvent:
@@ -104,7 +110,10 @@ public class ConversationService(
         {
             try
             {
-                session = await _client.ResumeSessionAsync(storedId);
+                session = await _client.ResumeSessionAsync(storedId, new ResumeSessionConfig
+                {
+                    OnPermissionRequest = (_, _) => Task.FromResult(new PermissionRequestResult { Kind = "allow" })
+                });
                 logger.LogInformation("Resumed conversation session {SessionId} for chat {ChatId}", storedId, chatId);
             }
             catch (Exception ex)
@@ -136,6 +145,7 @@ public class ConversationService(
             Model = "gpt-4o",
             Streaming = true,
             Tools = tools,
+            OnPermissionRequest = (_, _) => Task.FromResult(new PermissionRequestResult { Kind = "allow" }),
             SystemMessage = new SystemMessageConfig
             {
                 Mode = SystemMessageMode.Append,
@@ -185,8 +195,7 @@ public class ConversationService(
         ClawPilotDbContext db = dbFactory.CreateDbContext();
         await using (db)
         {
-            ConversationMessage? existing = await db.ConversationMessages
-                .FirstOrDefaultAsync(m => m.TelegramChatId == chatId, ct);
+            ConversationMessage? existing = await db.ConversationMessages.FirstOrDefaultAsync(m => m.TelegramChatId == chatId, ct);
 
             if (existing is not null)
             {
@@ -211,8 +220,7 @@ public class ConversationService(
         ClawPilotDbContext db = dbFactory.CreateDbContext();
         await using (db)
         {
-            ConversationMessage? row = await db.ConversationMessages
-                .FirstOrDefaultAsync(m => m.TelegramChatId == chatId, ct);
+            ConversationMessage? row = await db.ConversationMessages.FirstOrDefaultAsync(m => m.TelegramChatId == chatId, ct);
 
             if (row is not null)
             {

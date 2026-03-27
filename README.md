@@ -318,6 +318,25 @@ public class MyTool(ILogger<MyTool> logger)
 - [ ] Fine-tuning pipeline from `CorrectionStep` rows
 - [ ] Additional GitHub MCP tools (`search_code`, `list_commits`, Dependabot alerts)
 - [ ] Richer Blazor dashboard (session history, tool call timeline)
+- [ ] Consolidate to single `CopilotClient` (shared CLI process, lower resource overhead)
+
+---
+
+## SDK Compliance Backlog
+
+Issues identified against the [official SDK docs](https://github.com/github/copilot-sdk/blob/main/dotnet/README.md).
+Tracked as **Phase 10** in plan.md.
+
+| # | Severity | Issue | Status |
+|---|---|---|---|
+| 1 | 🔴 Critical | `OnPermissionRequest` is **Required** but missing from `CopilotService` | Pending |
+| 2 | 🟡 Medium | `GitHubToken` not passed to `CopilotClient` — relies on `gh auth login` in container | Pending |
+| 3 | 🟡 Medium | `session.On()` return value discarded in `CopilotService` — handler leak per run | Pending |
+| 4 | 🟡 Medium | `PermissionRequestResult.Kind = "allow"` is unvalidated — use `PermissionRequestResultKind.Approved` once SDK is upgraded | Pending |
+| 5 | 🔵 Low | SDK v0.1.25-preview.0 is outdated — missing `PermissionHandler.ApproveAll`, `gpt-5` support | Pending |
+| 6 | 🔵 Low | No `OnUserInputRequest` in `ConversationService` — agent cannot use built-in `ask_user` tool | Pending |
+
+> **Note:** Items 1 and 3 are the most impactful for stability. Fix these before the next major feature.
 
 ---
 
