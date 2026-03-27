@@ -11,6 +11,7 @@ public class ClawPilotDbContext(DbContextOptions<ClawPilotDbContext> options) : 
     public DbSet<ToolOutcome> ToolOutcomes => Set<ToolOutcome>();
     public DbSet<CorrectionStep> CorrectionSteps => Set<CorrectionStep>();
     public DbSet<SessionSummary> SessionSummaries => Set<SessionSummary>();
+    public DbSet<ConversationMessage> ConversationMessages => Set<ConversationMessage>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -33,6 +34,12 @@ public class ClawPilotDbContext(DbContextOptions<ClawPilotDbContext> options) : 
         {
             b.HasKey(x => x.Id);
             b.HasOne(x => x.Session).WithMany().HasForeignKey(x => x.SessionId);
+        });
+
+        modelBuilder.Entity<ConversationMessage>(b =>
+        {
+            b.HasKey(x => x.Id);
+            b.HasIndex(x => x.TelegramChatId);
         });
     }
 }

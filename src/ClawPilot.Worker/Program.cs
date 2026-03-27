@@ -30,6 +30,7 @@ builder.Services.Configure<DashboardOptions>(builder.Configuration.GetSection("D
 builder.Services.Configure<WebSearchMcpOptions>(builder.Configuration.GetSection("WebSearch"));
 builder.Services.Configure<AgentBudgetOptions>(builder.Configuration.GetSection("AgentBudget"));
 builder.Services.Configure<JournalOptions>(builder.Configuration.GetSection("Journal"));
+builder.Services.Configure<ConversationOptions>(builder.Configuration.GetSection("Conversation"));
 
 // EF Core SQLite journal
 builder.Services.AddDbContextFactory<ClawPilotDbContext>(options =>
@@ -70,6 +71,23 @@ builder.Services.AddSingleton<CopilotService>(sp =>
         sp.GetRequiredService<WebSearchMcpService>()
     );
 });
+
+// Conversation Service (CopilotService injected after construction to break circular dep)
+builder.Services.AddSingleton<ConversationService>(sp =>
+{
+    ConversationService svc = new(
+        sp.GetRequiredService<TelegramService>(),
+        sp.GetRequiredService<IDbContextFactory<ClawPilotDbContext>>(),
+        sp.GetRequiredService<IOptions<ConversationOptions>>(),
+        sp.GetRequiredService<WebSearchMcpService>(),
+        sp.GetRequiredService<ILogger<ConversationService>>()
+    )
+    {
+        CopilotService = sp.GetRequiredService<CopilotService>()
+    };
+    return svc;
+});
+builder.Services.AddHostedService(sp => sp.GetRequiredService<ConversationService>());
 
 builder.Services.AddHostedService<Worker>();
 

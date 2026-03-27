@@ -1,0 +1,17 @@
+**/.git
+**/.gitignore
+**/.vs
+**/.idea
+**/.DS_Store
+
+# Never copy build output into the image — restore creates these in Docker layers
+**/bin
+**/obj
+
+# Local secrets — never bake into image
+**/appsettings.Local.json
+.env
+
+# Logs and data
+**/logs
+**/data

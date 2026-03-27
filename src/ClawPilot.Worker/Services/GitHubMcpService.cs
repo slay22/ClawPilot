@@ -24,6 +24,8 @@ public class GitHubMcpService(
 
         try
         {
+            // X-MCP-Tools filtering removed — different PAT scopes expose different tool sets;
+            // let the server return what it supports and enforce permissions locally.
             HttpClientTransportOptions transportOptions = new HttpClientTransportOptions
             {
                 Endpoint = new Uri(opts.McpUrl),
@@ -31,7 +33,6 @@ public class GitHubMcpService(
                 AdditionalHeaders = new Dictionary<string, string>
                 {
                     ["Authorization"] = $"Bearer {opts.Pat}",
-                    ["X-MCP-Tools"] = string.Join(",", opts.Tools),
                     ["github-mcp-lockdown"] = "true"
                 }
             };

@@ -31,7 +31,7 @@ public class WebSearchMcpService(
             HttpClientTransportOptions transportOptions = new HttpClientTransportOptions
             {
                 Endpoint = new Uri($"https://mcp.tavily.com/mcp/?tavilyApiKey={opts.TavilyApiKey}"),
-                TransportMode = HttpTransportMode.Sse
+                TransportMode = HttpTransportMode.StreamableHttp
             };
 
             _mcpClient = await McpClient.CreateAsync(

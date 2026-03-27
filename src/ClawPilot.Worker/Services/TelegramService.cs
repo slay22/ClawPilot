@@ -9,6 +9,8 @@ using Telegram.Bot.Types.ReplyMarkups;
 
 namespace ClawPilot.Worker.Services;
 
+public record TelegramCommand(string ChatId, string Text);
+
 public class TelegramOptions
 {
     public string BotToken { get; set; } = string.Empty;
@@ -20,9 +22,9 @@ public class TelegramService(IOptions<TelegramOptions> options, ILogger<Telegram
     private readonly TelegramOptions _options = options.Value;
     private readonly ITelegramBotClient _botClient = new TelegramBotClient(options.Value.BotToken);
     private readonly ConcurrentDictionary<string, TaskCompletionSource<bool>> _pendingApprovals = new ConcurrentDictionary<string, TaskCompletionSource<bool>>();
-    private readonly Channel<string> _commandChannel = Channel.CreateUnbounded<string>();
+    private readonly Channel<TelegramCommand> _commandChannel = Channel.CreateUnbounded<TelegramCommand>();
 
-    public ChannelReader<string> CommandReader => _commandChannel.Reader;
+    public ChannelReader<TelegramCommand> CommandReader => _commandChannel.Reader;
 
     public async Task StartReceivingAsync(CancellationToken stoppingToken)
     {
@@ -74,7 +76,7 @@ public class TelegramService(IOptions<TelegramOptions> options, ILogger<Telegram
             case { Message: { } message }:
                 logger.LogInformation("Received message from {ChatId}: {Text}", message.Chat.Id, message.Text);
                 if (message.Text != null && message.Chat.Id.ToString() == _options.ChatId)
-                    await _commandChannel.Writer.WriteAsync(message.Text, cancellationToken);
+                    await _commandChannel.Writer.WriteAsync(new TelegramCommand(message.Chat.Id.ToString(), message.Text), cancellationToken);
                 break;
         }
     }
