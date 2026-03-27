@@ -32,9 +32,14 @@ services:
       - Telegram__BotToken=${TELEGRAM_BOT_TOKEN}
       - Telegram__ChatId=${TELEGRAM_CHAT_ID}
       - GitHub__CopilotToken=${GITHUB_COPILOT_TOKEN}
+      - GitHub__Mcp__Pat=${GITHUB_PAT}
       - ConnectionStrings__Database=Host=postgres;Username=postgres;Password=password;Database=postgres
+      - ConnectionStrings__Journal=Data Source=/app/data/clawpilot.db
       - Dashboard__Url=http://dashboard:8080/logHub
-      - WebSearch__BraveApiKey=${BRAVE_SEARCH_API_KEY}
+      - WebSearch__TavilyApiKey=${TAVILY_API_KEY}
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
     depends_on:
       postgres:
         condition: service_healthy

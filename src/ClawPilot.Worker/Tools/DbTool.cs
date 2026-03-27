@@ -7,20 +7,22 @@ namespace ClawPilot.Worker.Tools;
 
 public class DbTool(string connectionString, ILogger<DbTool> logger)
 {
-    [CopilotTool("get_schema", "Get the schema of the database including tables and columns.")]
-    public async Task<string> GetSchemaAsync()
+    [CopilotTool("get_schema", "List tables and columns from the database. Optionally filter by table name prefix.")]
+    public async Task<string> GetSchemaAsync(string? tableFilter = null)
     {
         logger.LogInformation("Getting database schema...");
-        using NpgsqlConnection conn = new(connectionString);
+        using NpgsqlConnection conn = new NpgsqlConnection(connectionString);
         await conn.OpenAsync();
 
-        IEnumerable<string> tables = await conn.QueryAsync<string>(@"
-            SELECT table_name
-            FROM information_schema.tables
-            WHERE table_schema = 'public'
-        ");
+        string tableQuery = string.IsNullOrEmpty(tableFilter)
+            ? "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'"
+            : "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_name LIKE @filter";
 
-        StringBuilder schema = new();
+        IEnumerable<string> tables = string.IsNullOrEmpty(tableFilter)
+            ? await conn.QueryAsync<string>(tableQuery)
+            : await conn.QueryAsync<string>(tableQuery, new { filter = tableFilter + "%" });
+
+        StringBuilder schema = new StringBuilder();
         foreach (string table in tables)
         {
             schema.AppendLine($"Table: {table}");
@@ -30,29 +32,32 @@ public class DbTool(string connectionString, ILogger<DbTool> logger)
                 WHERE table_name = @table
             ", new { table });
             foreach (dynamic col in columns)
-            {
                 schema.AppendLine($"  - {col.column_name} ({col.data_type})");
-            }
         }
 
         return schema.ToString();
     }
 
-    [CopilotTool("execute_query", "Execute a read-only SQL query and return the results as JSON.")]
+    [CopilotTool("execute_query", "Execute a read-only SQL query and return the results as JSON. Results are capped at 200 rows.")]
     public async Task<string> ExecuteQueryAsync(string sql)
     {
         logger.LogInformation("Executing query: {sql}", sql);
 
-        // Basic safety check: only SELECT
         if (!sql.TrimStart().StartsWith("SELECT", StringComparison.OrdinalIgnoreCase))
-        {
             return "Error: Only SELECT queries are allowed.";
-        }
 
-        using NpgsqlConnection conn = new(connectionString);
+        string normalizedSql = sql.TrimEnd();
+        if (!normalizedSql.Contains("LIMIT", StringComparison.OrdinalIgnoreCase))
+            normalizedSql = normalizedSql + " LIMIT 200";
+
+        using NpgsqlConnection conn = new NpgsqlConnection(connectionString);
         await conn.OpenAsync();
 
-        IEnumerable<dynamic> results = await conn.QueryAsync(sql);
-        return JsonSerializer.Serialize(results, new JsonSerializerOptions { WriteIndented = true });
+        CommandDefinition cmd = new CommandDefinition(normalizedSql, commandTimeout: 5);
+        IEnumerable<dynamic> results = await conn.QueryAsync(cmd);
+        List<dynamic> resultList = [..results];
+
+        string json = JsonSerializer.Serialize(resultList, new JsonSerializerOptions { WriteIndented = true });
+        return resultList.Count == 200 ? "// Note: results capped at 200 rows\n" + json : json;
     }
 }

@@ -1,11 +1,11 @@
 using System.Collections.Concurrent;
 using System.Threading.Channels;
+using ClawPilot.Worker.Models;
 using Microsoft.Extensions.Options;
 using Telegram.Bot;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
 using Telegram.Bot.Types.ReplyMarkups;
-using Microsoft.Extensions.Logging;
 
 namespace ClawPilot.Worker.Services;
 
@@ -72,7 +72,7 @@ public class TelegramService(IOptions<TelegramOptions> options, ILogger<Telegram
                 break;
             }
             case { Message: { } message }:
-                logger.LogInformation("Received message from {chatId}: {text}", message.Chat.Id, message.Text);
+                logger.LogInformation("Received message from {ChatId}: {Text}", message.Chat.Id, message.Text);
                 if (message.Text != null && message.Chat.Id.ToString() == _options.ChatId)
                     await _commandChannel.Writer.WriteAsync(message.Text, cancellationToken);
                 break;
@@ -102,6 +102,63 @@ public class TelegramService(IOptions<TelegramOptions> options, ILogger<Telegram
         return await tcs.Task;
     }
 
+    public async Task<bool> RequestPermissionTieredAsync(string toolName, string toolSource, string description, CancellationToken cancellationToken)
+    {
+        PermissionTier tier = DefaultPermissionPolicy.Resolve(toolName);
+
+        if (tier == PermissionTier.AutoApprove)
+        {
+            logger.LogInformation("Auto-approving tool: {Tool}", toolName);
+            return true;
+        }
+
+        if (tier == PermissionTier.AlwaysBlock)
+        {
+            await SendMessageAsync($"🚫 *Tool Blocked:* `{EscapeMarkdown(toolName)}`\n\n{EscapeMarkdown(description)}", cancellationToken);
+            return false;
+        }
+
+        // RequireConfirmation with 60-second timeout
+        string requestId = Guid.NewGuid().ToString("N");
+        TaskCompletionSource<bool> tcs = new TaskCompletionSource<bool>();
+        _pendingApprovals[requestId] = tcs;
+
+        InlineKeyboardMarkup keyboard = new InlineKeyboardMarkup([[
+            InlineKeyboardButton.WithCallbackData("✅ Approve", $"approve:{requestId}"),
+            InlineKeyboardButton.WithCallbackData("❌ Deny", $"deny:{requestId}")
+        ]]);
+
+        await _botClient.SendMessage(
+            chatId: _options.ChatId,
+            text: $"🔔 *Permission Request*\n\n{description}",
+            parseMode: ParseMode.Markdown,
+            replyMarkup: keyboard,
+            cancellationToken: cancellationToken
+        );
+
+        using CancellationTokenSource timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+        using CancellationTokenSource linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token);
+        using CancellationTokenRegistration _ = linkedCts.Token.Register(() =>
+        {
+            if (_pendingApprovals.TryRemove(requestId, out TaskCompletionSource<bool>? removedTcs))
+                removedTcs.TrySetResult(false);
+        });
+
+        return await tcs.Task;
+    }
+
+    public Task SendSessionOpenedAsync(string promptExcerpt, CancellationToken ct) =>
+        SendMessageAsync($"🤖 *Session started*\n\n_{EscapeMarkdown(promptExcerpt.Length > 100 ? promptExcerpt[..100] + "…" : promptExcerpt)}_", ct);
+
+    public Task SendSessionClosedAsync(int iterations, int corrections, TimeSpan elapsed, CancellationToken ct) =>
+        SendMessageAsync($"✅ *Done* in {iterations} iteration(s) | 🔁 {corrections} correction(s) | ⏱ {elapsed:mm\\:ss}", ct);
+
+    public Task SendBudgetExhaustedAsync(int iterations, CancellationToken ct) =>
+        SendMessageAsync($"⚠️ *Budget Exhausted* after {iterations} iterations", ct);
+
+    public Task SendSessionFaultedAsync(string reason, CancellationToken ct) =>
+        SendMessageAsync($"❌ *Faulted:* {EscapeMarkdown(reason)}", ct);
+
     public async Task SendMessageAsync(string text, CancellationToken cancellationToken = default)
     {
         await _botClient.SendMessage(
@@ -111,4 +168,7 @@ public class TelegramService(IOptions<TelegramOptions> options, ILogger<Telegram
             cancellationToken: cancellationToken
         );
     }
+
+    private static string EscapeMarkdown(string text) =>
+        text.Replace("_", "\\_").Replace("*", "\\*").Replace("`", "\\`").Replace("[", "\\[");
 }

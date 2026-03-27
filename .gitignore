@@ -10,3 +10,12 @@ obj/
 /node_modules
 /wwwroot/node_modules
 Arte.Apax.Pa.Backend.sln.DotSettings.user
+
+# === SECRETS — never commit these ===
+appsettings.Local.json
+appsettings.*.Local.json
+.env
+!.env.example
+
+# .NET user secrets (stored outside repo by dotnet, but just in case)
+secrets.json

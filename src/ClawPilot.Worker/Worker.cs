@@ -12,10 +12,7 @@ public class Worker(
     {
         logger.LogInformation("ClawPilot Worker starting...");
 
-        // Start LogService
         _ = logService.StartAsync(stoppingToken);
-
-        // Start Telegram receiver
         _ = telegramService.StartReceivingAsync(stoppingToken);
 
         await telegramService.SendMessageAsync("🤖 *Claw-Pilot Agent Online*", stoppingToken);
@@ -24,16 +21,11 @@ public class Worker(
         {
             try
             {
-                // Wait for commands from Telegram
                 string prompt = await telegramService.CommandReader.ReadAsync(stoppingToken);
 
-                logger.LogInformation("Processing prompt: {prompt}", prompt);
-                await telegramService.SendMessageAsync($"🧠 *Thinking...*\n\nProcessing: `{prompt}`", stoppingToken);
+                logger.LogInformation("Processing prompt: {Prompt}", prompt);
 
-                // Start Agentic Loop
-                await copilotService.RunAgentAsync(prompt, stoppingToken);
-
-                await telegramService.SendMessageAsync("✅ *Task Complete*", stoppingToken);
+                await copilotService.RunAgentAsync(prompt, "Telegram", stoppingToken);
             }
             catch (OperationCanceledException)
             {
@@ -41,8 +33,8 @@ public class Worker(
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "Error in agent loop");
-                await telegramService.SendMessageAsync($"❌ *Error:*\n\n{ex.Message}", stoppingToken);
+                logger.LogError(ex, "Unexpected error in agent loop");
+                await telegramService.SendMessageAsync($"❌ *Unexpected Error:*\n\n{ex.Message}", stoppingToken);
             }
         }
     }
