@@ -161,6 +161,44 @@ public class TelegramService(IOptions<TelegramOptions> options, ILogger<Telegram
     public Task SendSessionFaultedAsync(string reason, CancellationToken ct) =>
         SendMessageAsync($"❌ *Faulted:* {EscapeMarkdown(reason)}", ct);
 
+    /// <summary>
+    /// Sends a unified diff to Telegram as a code block and asks the operator
+    /// to approve or reject the auto-fix commit.  The diff is truncated when it
+    /// exceeds Telegram's 4 096-character message limit.
+    /// </summary>
+    public async Task<bool> RequestDiffApprovalAsync(
+        string prTitle, string prId, string diff, CancellationToken cancellationToken)
+    {
+        const int maxDiffChars = 3500; // leave room for surrounding markup
+        string truncated = diff.Length > maxDiffChars
+            ? diff[..maxDiffChars] + "\n… (truncated)"
+            : diff;
+
+        string requestId = Guid.NewGuid().ToString("N");
+        TaskCompletionSource<bool> tcs = new TaskCompletionSource<bool>();
+        _pendingApprovals[requestId] = tcs;
+
+        InlineKeyboardMarkup keyboard = new InlineKeyboardMarkup([[
+            InlineKeyboardButton.WithCallbackData("✅ Push fixes", $"approve:{requestId}"),
+            InlineKeyboardButton.WithCallbackData("❌ Discard", $"deny:{requestId}")
+        ]]);
+
+        string header = $"🔧 *Auto-fix diff for PR \\#{EscapeMarkdown(prId)}*: _{EscapeMarkdown(prTitle)}_\n\n";
+        string codeBlock = $"```diff\n{truncated}\n```";
+
+        await _botClient.SendMessage(
+            chatId: _options.ChatId,
+            text: header + codeBlock,
+            parseMode: ParseMode.Markdown,
+            replyMarkup: keyboard,
+            cancellationToken: cancellationToken
+        );
+
+        using CancellationTokenRegistration _ = cancellationToken.Register(
+            () => tcs.TrySetCanceled());
+        return await tcs.Task;
+    }
+
     public async Task SendMessageAsync(string text, CancellationToken cancellationToken = default)
     {
         await _botClient.SendMessage(

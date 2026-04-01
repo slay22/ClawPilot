@@ -28,6 +28,8 @@ services:
     build:
       context: .
       dockerfile: src/ClawPilot.Worker/Dockerfile
+    ports:
+      - "9000:9000"
     environment:
       - Telegram__BotToken=${TELEGRAM_BOT_TOKEN}
       - Telegram__ChatId=${TELEGRAM_CHAT_ID}
@@ -37,9 +39,14 @@ services:
       - ConnectionStrings__Journal=Data Source=/app/data/clawpilot.db
       - Dashboard__Url=http://dashboard:8080/logHub
       - WebSearch__TavilyApiKey=${TAVILY_API_KEY}
+      - PrRunner__WebhookSecret=${PR_WEBHOOK_SECRET}
+      - PrRunner__GitPat=${PR_GIT_PAT}
+      - PrRunner__ContainerImage=${PR_RUNNER_IMAGE:-claw-pilot-runner:latest}
     volumes:
       - ./data:/app/data
       - ./logs:/app/logs
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /tmp/clawpilot-runs:/tmp/clawpilot-runs
     depends_on:
       postgres:
         condition: service_healthy

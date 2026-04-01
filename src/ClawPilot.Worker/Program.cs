@@ -7,7 +7,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Serilog;
 using Serilog.Formatting.Compact;
-
 HostApplicationBuilder builder = Host.CreateApplicationBuilder(args);
 
 // Load local secret overrides (gitignored — never committed)
@@ -24,6 +23,7 @@ builder.Services.AddSerilog((sp, cfg) =>
 
 // Configuration
 builder.Services.Configure<TelegramOptions>(builder.Configuration.GetSection("Telegram"));
+builder.Services.Configure<PrRunnerOptions>(builder.Configuration.GetSection("PrRunner"));
 builder.Services.Configure<GitHubOptions>(builder.Configuration.GetSection("GitHub"));
 builder.Services.Configure<GitHubMcpOptions>(builder.Configuration.GetSection("GitHub:Mcp"));
 builder.Services.Configure<DashboardOptions>(builder.Configuration.GetSection("Dashboard"));
@@ -90,6 +90,11 @@ builder.Services.AddSingleton<ConversationService>(sp =>
     return svc;
 });
 builder.Services.AddHostedService(sp => sp.GetRequiredService<ConversationService>());
+
+// PR Webhook + Runner Services
+builder.Services.AddSingleton<PrWebhookService>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<PrWebhookService>());
+builder.Services.AddHostedService<PrRunnerService>();
 
 builder.Services.AddHostedService<Worker>();
 
