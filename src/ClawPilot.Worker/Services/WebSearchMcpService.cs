@@ -28,7 +28,7 @@ public class WebSearchMcpService(
 
         try
         {
-            HttpClientTransportOptions transportOptions = new HttpClientTransportOptions
+            HttpClientTransportOptions transportOptions = new()
             {
                 Endpoint = new Uri($"https://mcp.tavily.com/mcp/?tavilyApiKey={opts.TavilyApiKey}"),
                 TransportMode = HttpTransportMode.StreamableHttp

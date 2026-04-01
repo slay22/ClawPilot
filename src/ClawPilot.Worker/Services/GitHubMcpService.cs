@@ -26,7 +26,7 @@ public class GitHubMcpService(
         {
             // X-MCP-Tools filtering removed — different PAT scopes expose different tool sets;
             // let the server return what it supports and enforce permissions locally.
-            HttpClientTransportOptions transportOptions = new HttpClientTransportOptions
+            HttpClientTransportOptions transportOptions = new()
             {
                 Endpoint = new Uri(opts.McpUrl),
                 TransportMode = HttpTransportMode.Sse,

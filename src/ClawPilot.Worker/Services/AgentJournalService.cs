@@ -16,7 +16,7 @@ public class AgentJournalService(
     public async Task<AgentSession> OpenSessionAsync(string triggerSource, string prompt)
     {
         await using ClawPilotDbContext db = await dbFactory.CreateDbContextAsync();
-        AgentSession session = new AgentSession
+        AgentSession session = new()
         {
             TriggerSource = triggerSource,
             InitialPrompt = prompt,

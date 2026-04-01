@@ -26,7 +26,7 @@ public class PrWebhookService(
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         string prefix = $"http://+:{_options.WebhookPort}{_options.WebhookPath}/";
-        using HttpListener listener = new HttpListener();
+        using HttpListener listener = new();
         listener.Prefixes.Add(prefix);
 
         try
@@ -78,7 +78,7 @@ public class PrWebhookService(
                 return;
             }
 
-            using StreamReader reader = new StreamReader(req.InputStream, Encoding.UTF8);
+            using StreamReader reader = new(req.InputStream, Encoding.UTF8);
             string body = await reader.ReadToEndAsync(ct);
 
             // Validate GitHub HMAC-SHA256 signature when secret is configured

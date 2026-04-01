@@ -54,13 +54,13 @@ public class CopilotService(
 
         await telegramService.SendSessionOpenedAsync(prompt, stoppingToken);
 
-        using CancellationTokenSource budgetCts = new CancellationTokenSource();
+        using CancellationTokenSource budgetCts = new();
         budgetCts.CancelAfter(_budget.Timeout);
         using CancellationTokenSource linkedCts = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken, budgetCts.Token);
 
         try
         {
-            await _client.StartAsync();
+            await _client.StartAsync(stoppingToken);
 
             await using CopilotSession copilotSession = await _client.CreateSessionAsync(new SessionConfig
             {
@@ -101,9 +101,9 @@ public class CopilotService(
                         return new PreToolUseHookOutput { PermissionDecision = approved ? "allow" : "deny" };
                     }
                 }
-            });
+            }, stoppingToken);
 
-            TaskCompletionSource done = new TaskCompletionSource();
+            TaskCompletionSource done = new();
             using CancellationTokenRegistration reg = linkedCts.Token.Register(() => done.TrySetCanceled());
 
             copilotSession.On(ev =>
@@ -141,7 +141,7 @@ public class CopilotService(
             });
 
             logger.LogInformation("Sending prompt to Copilot...");
-            await copilotSession.SendAsync(new MessageOptions { Prompt = prompt });
+            await copilotSession.SendAsync(new MessageOptions { Prompt = prompt }, stoppingToken);
             await done.Task;
 
             string budgetJson = $"{{\"iterations\":{iterationsUsed},\"toolCalls\":{toolCallsUsed}}}";

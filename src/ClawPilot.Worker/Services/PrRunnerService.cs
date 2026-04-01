@@ -89,7 +89,7 @@ public class PrRunnerService(
 
         logger.LogInformation("Spawning container {Name} for job {JobId}", containerName, job.JobId);
 
-        ProcessStartInfo psi = new ProcessStartInfo
+        ProcessStartInfo psi = new()
         {
             FileName = "docker",
             Arguments = argString,
@@ -173,7 +173,7 @@ public class PrRunnerService(
     {
         try
         {
-            ProcessStartInfo killPsi = new ProcessStartInfo
+            ProcessStartInfo killPsi = new()
             {
                 FileName = "docker",
                 Arguments = $"kill {containerName}",
@@ -267,7 +267,7 @@ public class PrRunnerService(
 
         try
         {
-            ProcessStartInfo psi = new ProcessStartInfo
+            ProcessStartInfo psi = new()
             {
                 FileName = "docker",
                 Arguments = $"run --rm " +
@@ -296,10 +296,8 @@ public class PrRunnerService(
                 return;
             }
 
-            using CancellationTokenSource timeoutCts =
-                new CancellationTokenSource(TimeSpan.FromSeconds(60));
-            using CancellationTokenSource linked =
-                CancellationTokenSource.CreateLinkedTokenSource(ct, timeoutCts.Token);
+            using CancellationTokenSource timeoutCts = new(TimeSpan.FromSeconds(60));
+            using CancellationTokenSource linked = CancellationTokenSource.CreateLinkedTokenSource(ct, timeoutCts.Token);
 
             await process.WaitForExitAsync(linked.Token);
 
@@ -327,7 +325,7 @@ public class PrRunnerService(
     // ─── Helpers ──────────────────────────────────────────────────────────────
 
     private static PrRunnerResult FailedResult(string reason) =>
-        new PrRunnerResult(
+        new(
             Success: false,
             BuildPassed: false,
             TestsPassed: false,
