@@ -19,3 +19,6 @@ appsettings.*.Local.json
 
 # .NET user secrets (stored outside repo by dotnet, but just in case)
 secrets.json
+
+data/
+logs/
