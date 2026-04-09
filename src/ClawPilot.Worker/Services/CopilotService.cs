@@ -58,6 +58,7 @@ public class CopilotService(
         budgetCts.CancelAfter(_budget.Timeout);
         using CancellationTokenSource linkedCts = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken, budgetCts.Token);
 
+        bool sessionSuccess = false;
         try
         {
             await _client.StartAsync(stoppingToken);
@@ -150,6 +151,7 @@ public class CopilotService(
 
             TimeSpan elapsed = DateTime.UtcNow - session.StartedAt;
             await telegramService.SendSessionClosedAsync(iterationsUsed, 0, elapsed, stoppingToken);
+            sessionSuccess = true;
         }
         catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
         {
@@ -170,6 +172,7 @@ public class CopilotService(
         finally
         {
             await _client.StopAsync();
+            await logService.BroadcastSessionEndAsync(sessionSuccess);
         }
     }
 }

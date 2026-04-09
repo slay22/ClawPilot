@@ -31,6 +31,8 @@ builder.Services.Configure<WebSearchMcpOptions>(builder.Configuration.GetSection
 builder.Services.Configure<AgentBudgetOptions>(builder.Configuration.GetSection("AgentBudget"));
 builder.Services.Configure<JournalOptions>(builder.Configuration.GetSection("Journal"));
 builder.Services.Configure<ConversationOptions>(builder.Configuration.GetSection("Conversation"));
+builder.Services.Configure<EmailOptions>(builder.Configuration.GetSection("Email"));
+builder.Services.Configure<CliOptions>(builder.Configuration.GetSection("Cli"));
 
 // EF Core SQLite journal
 builder.Services.AddDbContextFactory<ClawPilotDbContext>(options =>
@@ -45,12 +47,17 @@ builder.Services.AddSingleton<IAgentJournal, AgentJournalService>();
 builder.Services.AddSingleton<DbTool>(sp =>
     new DbTool(builder.Configuration.GetConnectionString("Database") ?? "", sp.GetRequiredService<ILogger<DbTool>>()));
 builder.Services.AddSingleton<BuildTool>();
+builder.Services.AddSingleton<EmailTool>();
 
 // MCP Services
 builder.Services.AddSingleton<GitHubMcpService>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<GitHubMcpService>());
 builder.Services.AddSingleton<WebSearchMcpService>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<WebSearchMcpService>());
+
+// Scheduler Service (registered as singleton so Worker and CopilotService can both reference it)
+builder.Services.AddSingleton<SchedulerService>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<SchedulerService>());
 
 // Copilot Service
 builder.Services.AddSingleton<CopilotService>(sp =>
@@ -59,6 +66,8 @@ builder.Services.AddSingleton<CopilotService>(sp =>
     [
         sp.GetRequiredService<DbTool>(),
         sp.GetRequiredService<BuildTool>(),
+        sp.GetRequiredService<EmailTool>(),
+        sp.GetRequiredService<SchedulerService>(),
     ];
     return new CopilotService(
         sp.GetRequiredService<TelegramService>(),
@@ -71,6 +80,14 @@ builder.Services.AddSingleton<CopilotService>(sp =>
         sp.GetRequiredService<GitHubMcpService>(),
         sp.GetRequiredService<WebSearchMcpService>()
     );
+});
+
+// Wire CopilotService into SchedulerService (breaks circular dep)
+builder.Services.AddSingleton(sp =>
+{
+    SchedulerService scheduler = sp.GetRequiredService<SchedulerService>();
+    scheduler.CopilotService = sp.GetRequiredService<CopilotService>();
+    return scheduler;
 });
 
 // Conversation Service (CopilotService injected after construction to break circular dep)
@@ -95,6 +112,10 @@ builder.Services.AddHostedService(sp => sp.GetRequiredService<ConversationServic
 builder.Services.AddSingleton<PrWebhookService>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<PrWebhookService>());
 builder.Services.AddHostedService<PrRunnerService>();
+
+// CLI API Service
+builder.Services.AddSingleton<CliApiService>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<CliApiService>());
 
 builder.Services.AddHostedService<Worker>();
 
@@ -124,6 +145,32 @@ using (IServiceScope scope = host.Services.CreateScope())
         await db.Database.ExecuteSqlRawAsync("""
             CREATE INDEX IF NOT EXISTS "IX_ConversationMessages_TelegramChatId"
             ON "ConversationMessages" ("TelegramChatId")
+            """);
+
+        await db.Database.ExecuteSqlRawAsync("""
+            CREATE TABLE IF NOT EXISTS "ScheduledTasks" (
+                "Id"            TEXT NOT NULL CONSTRAINT "PK_ScheduledTasks" PRIMARY KEY,
+                "Label"         TEXT NOT NULL DEFAULT '',
+                "Prompt"        TEXT NOT NULL DEFAULT '',
+                "CronExpression" TEXT NOT NULL DEFAULT '',
+                "RunMode"       INTEGER NOT NULL DEFAULT 0,
+                "NeedsApproval" INTEGER NOT NULL DEFAULT 0,
+                "IsEnabled"     INTEGER NOT NULL DEFAULT 1,
+                "RunCount"      INTEGER NOT NULL DEFAULT 0,
+                "LastRunAt"     TEXT,
+                "NextRunAt"     TEXT NOT NULL DEFAULT '0001-01-01T00:00:00+00:00',
+                "CreatedAt"     TEXT NOT NULL DEFAULT '0001-01-01T00:00:00+00:00'
+            )
+            """);
+
+        await db.Database.ExecuteSqlRawAsync("""
+            CREATE INDEX IF NOT EXISTS "IX_ScheduledTasks_IsEnabled"
+            ON "ScheduledTasks" ("IsEnabled")
+            """);
+
+        await db.Database.ExecuteSqlRawAsync("""
+            CREATE INDEX IF NOT EXISTS "IX_ScheduledTasks_NextRunAt"
+            ON "ScheduledTasks" ("NextRunAt")
             """);
     }
 }

@@ -30,6 +30,7 @@ services:
       dockerfile: src/ClawPilot.Worker/Dockerfile
     ports:
       - "9000:9000"
+      - "127.0.0.1:9001:9001"
     environment:
       - Telegram__BotToken=${TELEGRAM_BOT_TOKEN}
       - Telegram__ChatId=${TELEGRAM_CHAT_ID}
@@ -39,6 +40,17 @@ services:
       - ConnectionStrings__Journal=Data Source=/app/data/clawpilot.db
       - Dashboard__Url=http://dashboard:8080/logHub
       - WebSearch__TavilyApiKey=${TAVILY_API_KEY}
+      - Email__ImapHost=${EMAIL_IMAP_HOST:-}
+      - Email__ImapPort=${EMAIL_IMAP_PORT:-993}
+      - Email__ImapUseSsl=${EMAIL_IMAP_SSL:-true}
+      - Email__SmtpHost=${EMAIL_SMTP_HOST:-}
+      - Email__SmtpPort=${EMAIL_SMTP_PORT:-587}
+      - Email__SmtpUseSsl=${EMAIL_SMTP_SSL:-false}
+      - Email__Username=${EMAIL_USERNAME:-}
+      - Email__Password=${EMAIL_PASSWORD:-}
+      - Email__FromName=${EMAIL_FROM_NAME:-ClawPilot Agent}
+      - Email__FromAddress=${EMAIL_FROM_ADDRESS:-}
+      - Cli__Port=${CLI_PORT:-9001}
       - PrRunner__WebhookSecret=${PR_WEBHOOK_SECRET}
       - PrRunner__GitPat=${PR_GIT_PAT}
       - PrRunner__ContainerImage=${PR_RUNNER_IMAGE:-claw-pilot-runner:latest}

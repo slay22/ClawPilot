@@ -12,6 +12,7 @@ public class ClawPilotDbContext(DbContextOptions<ClawPilotDbContext> options) : 
     public DbSet<CorrectionStep> CorrectionSteps => Set<CorrectionStep>();
     public DbSet<SessionSummary> SessionSummaries => Set<SessionSummary>();
     public DbSet<ConversationMessage> ConversationMessages => Set<ConversationMessage>();
+    public DbSet<ScheduledTask> ScheduledTasks => Set<ScheduledTask>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -40,6 +41,13 @@ public class ClawPilotDbContext(DbContextOptions<ClawPilotDbContext> options) : 
         {
             b.HasKey(x => x.Id);
             b.HasIndex(x => x.TelegramChatId);
+        });
+
+        modelBuilder.Entity<ScheduledTask>(b =>
+        {
+            b.HasKey(x => x.Id);
+            b.HasIndex(x => x.IsEnabled);
+            b.HasIndex(x => x.NextRunAt);
         });
     }
 }

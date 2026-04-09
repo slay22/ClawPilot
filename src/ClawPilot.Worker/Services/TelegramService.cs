@@ -209,6 +209,10 @@ public class TelegramService(IOptions<TelegramOptions> options, ILogger<Telegram
         );
     }
 
+    /// <summary>Inject a command directly into the processing queue (used by the CLI API).</summary>
+    public async Task WriteCommandAsync(TelegramCommand command, CancellationToken ct = default)
+        => await _commandChannel.Writer.WriteAsync(command, ct);
+
     private static string EscapeMarkdown(string text) =>
         text.Replace("_", "\\_").Replace("*", "\\*").Replace("`", "\\`").Replace("[", "\\[");
 }
